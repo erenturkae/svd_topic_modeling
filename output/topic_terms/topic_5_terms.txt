@@ -1,0 +1,12 @@
+Topic 5  (σ_5 = 2.1246)
+-----------------------------------
+  mobile                0.293226
+  microsoft             0.191877
+  government            0.176779
+  blair                 0.159481
+  phone                 0.150522
+  users                 0.150342
+  labour                0.141473
+  phones                0.136545
+  software              0.134671
+  brown                 0.111028
