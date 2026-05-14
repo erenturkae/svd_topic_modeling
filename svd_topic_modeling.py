@@ -1,8 +1,5 @@
-"""
-BBF202E Numerical Methods in Comp. Eng. – Term Project
-SVD-based Topic Modeling via Eigenvalue Decomposition
-Student: [YOUR NAME] | ID: [YOUR STUDENT ID]
-"""
+# Abdullah Eren Erenturk
+# 150210327
 
 import os
 import re
@@ -11,11 +8,10 @@ import argparse
 import numpy as np
 import matplotlib.pyplot as plt
 
-# ─────────────────────────────────────────────────────────────────────────────
-# TASK 1 – TF-IDF Matrix Construction
-# ─────────────────────────────────────────────────────────────────────────────
 
-# Standard English stop words (50–150 words as required)
+# TASK 1 – TF-IDF Matrix Construction
+
+# English stop words
 STOP_WORDS = {
     "a", "about", "above", "after", "again", "against", "all", "am", "an",
     "and", "any", "are", "aren't", "as", "at", "be", "because", "been",
@@ -39,7 +35,7 @@ STOP_WORDS = {
     "who", "who's", "whom", "why", "why's", "will", "with", "won't", "would",
     "wouldn't", "you", "you'd", "you'll", "you're", "you've", "your", "yours",
     "yourself", "yourselves",
-    # domain-specific extras
+    # domain specific extras
     "said", "mr", "mrs", "ms", "one", "two", "also", "us", "uk", "new",
     "year", "years", "last", "first", "time", "people", "told", "says",
     "say", "make", "made", "way", "use", "used", "now", "three", "may",
@@ -49,34 +45,32 @@ STOP_WORDS = {
 }
 
 
-def tokenize(text: str) -> list[str]:
+def tokenize(text):
     """
     Lowercase, strip non-alpha, split on whitespace, remove stop words,
     and keep tokens with length >= 3.
     """
-    # STUDENT IMPLEMENTATION START
     text = text.lower()
     # keep only letters and spaces
     text = re.sub(r"[^a-z\s]", " ", text)
     tokens = text.split()
     tokens = [t for t in tokens if len(t) >= 3 and t not in STOP_WORDS]
-    # STUDENT IMPLEMENTATION END
+
     return tokens
 
 
-def build_tfidf_matrix(documents: list[list[str]]):
+def build_tfidf_matrix(documents):
     """
-    Build a TF-IDF term-document matrix (m x n), L2-normalised per column.
+    Build a TF-IDF term-document matrix (m x n), L2-normalized per column.
 
     Returns
-    -------
-    A    : np.ndarray  shape (m, n)  — TF-IDF matrix
-    vocab: list[str]                 — vocabulary (row labels)
+    A: np.ndarray (m x n)   — TF-IDF matrix
+    vocab: list[str]        — vocabulary (row labels)
     """
-    # STUDENT IMPLEMENTATION START
+
     n = len(documents)
 
-    # ── build vocabulary ──────────────────────────────────────────────────
+    # build vocabulary
     vocab_set = set()
     for doc in documents:
         vocab_set.update(doc)
@@ -84,48 +78,43 @@ def build_tfidf_matrix(documents: list[list[str]]):
     term2idx = {t: i for i, t in enumerate(vocab)}
     m = len(vocab)
 
-    # ── TF: raw term counts per document ─────────────────────────────────
+    # TF: raw term counts per document
     TF = np.zeros((m, n), dtype=np.float64)
     for j, doc in enumerate(documents):
         for token in doc:
             if token in term2idx:
                 TF[term2idx[token], j] += 1
-    # divide each column by total tokens in that doc (normalised TF)
+    # divide each column by total tokens in that doc (normalized TF)
     col_sums = TF.sum(axis=0, keepdims=True)
     col_sums[col_sums == 0] = 1
     TF = TF / col_sums
 
-    # ── IDF: log((1 + n) / (1 + df)) + 1  (smooth IDF) ──────────────────
-    df = (TF > 0).sum(axis=1)                        # (m,)
-    idf = np.log((1.0 + n) / (1.0 + df)) + 1.0      # (m,)
+    # IDF: log((1 + n) / (1 + df)) + 1  (smooth IDF)
+    df = (TF > 0).sum(axis=1)
+    idf = np.log((1.0 + n) / (1.0 + df)) + 1.0
 
-    # ── TF-IDF ────────────────────────────────────────────────────────────
-    A = TF * idf[:, np.newaxis]                      # broadcast over columns
+    # TF-IDF
+    A = TF * idf[:, np.newaxis] # broadcast over columns
 
-    # ── L2-normalise each document column ────────────────────────────────
+    # L2-normalize each document column
     col_norms = np.linalg.norm(A, axis=0, keepdims=True)
     col_norms[col_norms == 0] = 1
     A = A / col_norms
-    # STUDENT IMPLEMENTATION END
 
     return A, vocab
 
 
-# ─────────────────────────────────────────────────────────────────────────────
 # TASK 2 – Eigenvalue Decomposition from Scratch
-# ─────────────────────────────────────────────────────────────────────────────
 
-def power_iteration(B: np.ndarray, max_iter: int = 2000, tol: float = 1e-9,
-                    seed: int = 42) -> tuple[float, np.ndarray]:
+def power_iteration(B, max_iter=2000, tol=1e-9, seed=42):
     """
     Power Method to find the dominant eigenpair of symmetric PSD matrix B.
 
     Returns
-    -------
-    eigenvalue : float
-    eigenvector: np.ndarray  shape (n,)
+    eigenvalue: float
+    eigenvector (v): np.ndarray
     """
-    # STUDENT IMPLEMENTATION START
+
     rng = np.random.default_rng(seed)
     n = B.shape[0]
     v = rng.standard_normal(n)
@@ -145,20 +134,19 @@ def power_iteration(B: np.ndarray, max_iter: int = 2000, tol: float = 1e-9,
 
     # final Rayleigh quotient for accuracy
     eigenvalue = float(v @ (B @ v))
-    # STUDENT IMPLEMENTATION END
+
     return eigenvalue, v
 
 
-def eigen_decomposition_top_k(B: np.ndarray, k: int):
+def eigen_decomposition_top_k(B, k):
     """
     Compute the top-k eigenpairs of B using Power Method + Deflation.
 
     Returns
-    -------
-    eigenvalues : np.ndarray  shape (k,)
-    eigenvectors: np.ndarray  shape (n, k)  — columns are eigenvectors
+    eigenvalues: np.ndarray (k,)
+    eigenvectors: np.ndarray (n, k)  — columns are eigenvectors
     """
-    # STUDENT IMPLEMENTATION START
+
     n = B.shape[0]
     eigenvalues = np.zeros(k)
     eigenvectors = np.zeros((n, k))
@@ -166,7 +154,7 @@ def eigen_decomposition_top_k(B: np.ndarray, k: int):
     B_deflated = B.copy()
 
     for i in range(k):
-        seed = i * 17 + 3                       # different seed per step
+        seed = i * 17 + 3   # different seed per step
         lam, v = power_iteration(B_deflated, seed=seed)
 
         # clamp small negatives caused by floating-point to zero
@@ -179,31 +167,25 @@ def eigen_decomposition_top_k(B: np.ndarray, k: int):
         # deflation: remove this component
         B_deflated = B_deflated - lam * np.outer(v, v)
 
-    # STUDENT IMPLEMENTATION END
     return eigenvalues, eigenvectors
 
 
-# ─────────────────────────────────────────────────────────────────────────────
 # TASK 3 – SVD Construction & Singular Value Analysis
-# ─────────────────────────────────────────────────────────────────────────────
 
-def svd_from_scratch(A: np.ndarray, k: int):
+def svd_from_scratch(A, k):
     """
     Compute truncated SVD A ≈ U Σ Vᵀ using eigendecomposition of AᵀA.
 
     Returns
-    -------
-    U    : np.ndarray  shape (m, k)
-    sigma: np.ndarray  shape (k,)
-    VT   : np.ndarray  shape (k, n)
+    U: np.ndarray (m, k)
+    sigma: np.ndarray (k,)
+    VT: np.ndarray (k, n)
     """
-    # STUDENT IMPLEMENTATION START
-    B = A.T @ A                                     # (n x n) symmetric PSD
 
-    eigenvalues, V = eigen_decomposition_top_k(B, k)   # V: (n, k)
-
+    B = A.T @ A     # (n x n) symmetric PSD
+    eigenvalues, V = eigen_decomposition_top_k(B, k)    # V: (n, k)
     # singular values = sqrt of eigenvalues  (clamp negatives)
-    sigma = np.sqrt(np.maximum(eigenvalues, 0.0))       # (k,)
+    sigma = np.sqrt(np.maximum(eigenvalues, 0.0))
 
     # U = A V Σ⁻¹  — compute column by column to avoid division by zero
     m = A.shape[0]
@@ -212,49 +194,41 @@ def svd_from_scratch(A: np.ndarray, k: int):
         if sigma[i] > 1e-12:
             U[:, i] = (A @ V[:, i]) / sigma[i]
         else:
-            # zero singular value — assign zero column
+            # zero singular value (assign zero column)
             U[:, i] = 0.0
+    VT = V.T    # (k, n)
 
-    VT = V.T                                        # (k, n)
-    # STUDENT IMPLEMENTATION END
     return U, sigma, VT
 
 
-# ─────────────────────────────────────────────────────────────────────────────
 # TASK 4 – Truncated SVD & Reconstruction Error
-# ─────────────────────────────────────────────────────────────────────────────
 
-def reconstruction_error(A: np.ndarray, U: np.ndarray,
-                          sigma: np.ndarray, VT: np.ndarray,
-                          k: int) -> float:
+def reconstruction_error(A, U, sigma, VT, k):
     """
     Compute Frobenius reconstruction error ||A - A_k||_F.
     Uses only the top-k components of the provided decomposition.
     """
-    # STUDENT IMPLEMENTATION START
+
     A_k = (U[:, :k] * sigma[:k]) @ VT[:k, :]       # (m x n)
     diff = A - A_k
     error = float(np.sqrt(np.sum(diff ** 2)))
-    # STUDENT IMPLEMENTATION END
+
     return error
 
 
-# ─────────────────────────────────────────────────────────────────────────────
 # Helper – Dataset Loading
-# ─────────────────────────────────────────────────────────────────────────────
-
 CATEGORIES = ["business", "entertainment", "politics", "sport", "tech"]
 
 
-def load_bbc_dataset(data_path: str, max_docs: int = 100):
+def load_bbc_dataset(data_path, max_docs=100):
     """
     Load up to max_docs documents per category from the BBC folder structure.
 
     Returns
-    -------
     documents : list[list[str]]   — tokenised docs
     labels    : list[str]          — category name per doc
     """
+
     documents = []
     labels = []
 
@@ -287,10 +261,7 @@ def load_bbc_dataset(data_path: str, max_docs: int = 100):
     return documents, labels
 
 
-# ─────────────────────────────────────────────────────────────────────────────
 # Plotting helpers
-# ─────────────────────────────────────────────────────────────────────────────
-
 CAT_COLORS = {
     "business":      "#2196F3",
     "entertainment": "#FF5722",
@@ -300,7 +271,7 @@ CAT_COLORS = {
 }
 
 
-def plot_singular_value_decay(sigma: np.ndarray, output_path: str):
+def plot_singular_value_decay(sigma, output_path):
     total_energy = np.sum(sigma ** 2)
     cumvar = np.cumsum(sigma ** 2) / total_energy * 100
 
@@ -327,8 +298,7 @@ def plot_singular_value_decay(sigma: np.ndarray, output_path: str):
     print(f"Saved: {fpath}")
 
 
-def plot_reconstruction_errors(ranks: list[int], errors: list[float],
-                                output_path: str):
+def plot_reconstruction_errors(ranks, errors, output_path):
     fig, ax = plt.subplots(figsize=(7, 4))
     ax.plot(ranks, errors, "D-", color="#6A1B9A", markersize=7)
     for r, e in zip(ranks, errors):
@@ -345,8 +315,7 @@ def plot_reconstruction_errors(ranks: list[int], errors: list[float],
     print(f"Saved: {fpath}")
 
 
-def plot_document_embeddings(VT: np.ndarray, sigma: np.ndarray,
-                              labels: list[str], output_path: str):
+def plot_document_embeddings(VT, sigma, labels, output_path):
     """
     Project documents to 2D concept space: D = Σ_k V_kᵀ  → use first 2 dims.
     """
@@ -371,27 +340,21 @@ def plot_document_embeddings(VT: np.ndarray, sigma: np.ndarray,
     print(f"Saved: {fpath}")
 
 
-# ─────────────────────────────────────────────────────────────────────────────
 # Main pipeline
-# ─────────────────────────────────────────────────────────────────────────────
 
 def main():
     parser = argparse.ArgumentParser(description="SVD Topic Modeling")
-    parser.add_argument("--data_path",   required=True,
-                        help="Path to BBC dataset root folder")
-    parser.add_argument("--output_path", required=True,
-                        help="Directory for output files")
-    parser.add_argument("--max_docs",    type=int, default=100,
-                        help="Max documents per category (default: 100)")
-    parser.add_argument("--k_svd",       type=int, default=50,
-                        help="Number of singular values/vectors (default: 50)")
+    parser.add_argument("--data_path", required=True, help="Path to BBC dataset root folder")
+    parser.add_argument("--output_path", required=True, help="Directory for output files")
+    parser.add_argument("--max_docs", type=int, default=100, help="Max documents per category")
+    parser.add_argument("--k_svd", type=int, default=50, help="Number of singular values/vectors")
     args = parser.parse_args()
 
     os.makedirs(args.output_path, exist_ok=True)
     topic_terms_dir = os.path.join(args.output_path, "topic_terms")
     os.makedirs(topic_terms_dir, exist_ok=True)
 
-    # ── 1. Load & tokenise ───────────────────────────────────────────────
+    # 1. Load & tokenise
     print("\n[TASK 1] Building TF-IDF matrix …")
     documents, labels = load_bbc_dataset(args.data_path, args.max_docs)
     if len(documents) == 0:
@@ -403,7 +366,7 @@ def main():
     np.save(os.path.join(args.output_path, "tfidf_matrix.npy"), A)
     print("Saved: tfidf_matrix.npy")
 
-    # ── 2 & 3. Truncated SVD ─────────────────────────────────────────────
+    # 2 & 3. Truncated SVD
     k = args.k_svd
     print(f"\n[TASK 2 & 3] Computing truncated SVD  k = {k} …")
     U, sigma, VT = svd_from_scratch(A, k)
@@ -427,7 +390,7 @@ def main():
     k90 = int(np.searchsorted(cumvar_full, 90.0)) + 1
     print(f"\nMinimum k for 90% energy retention: {k90}")
 
-    # ── 4. Reconstruction errors ─────────────────────────────────────────
+    # 4. Reconstruction errors
     print("\n[TASK 4] Computing reconstruction errors …")
     rank_list = [r for r in [2, 5, 10, 20, 50] if r <= k]
     errors = []
@@ -444,7 +407,7 @@ def main():
 
     plot_reconstruction_errors(rank_list, errors, args.output_path)
 
-    # ── 5. Topic analysis & visualisation ────────────────────────────────
+    # 5. Topic analysis & visualisation
     print("\n[TASK 5] Topic analysis …")
 
     # Document embeddings in concept space
